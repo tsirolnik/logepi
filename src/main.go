@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"os"
 	"strings"
 	"time"
 
@@ -38,8 +39,8 @@ func initDBConnection(user, password, dbname, host, port, sslmode string) (*sql.
 		sslmode,
 	)
 	logrus.Printf("Database connection: %s", connString)
-	db, err := sql.Open("postgres", connString)
-	if err != nil {
+	db, _ := sql.Open("postgres", connString)
+	if err := db.Ping(); err != nil {
 		return nil, err
 	}
 	return db, nil
@@ -56,6 +57,7 @@ func log(w http.ResponseWriter, r *http.Request) {
 		"IP":         r.RemoteAddr,
 		"User-Agent": r.UserAgent(),
 	}).Infof("Log access")
+
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("ERROR|Please use POST request"))
@@ -135,6 +137,13 @@ func init() {
 
 	config.SetDefault("port", defaultPort)
 	serverPort = config.GetString("port")
+	// Check for PORT env variable, override configruation if exists
+	if envPort := os.Getenv("PORT"); envPort != "" {
+		serverPort = envPort
+		logrus.WithFields(logrus.Fields{
+			"PORT": serverPort,
+		}).Debug("Using environment's PORT")
+	}
 
 	dbDetails := config.GetStringMapString("database")
 	sslMode := "require"
@@ -158,9 +167,6 @@ func init() {
 	)
 	if err != nil {
 		logrus.Fatalf("Failed connection to DB: %s", err.Error())
-	}
-	if err != nil {
-		logrus.Fatal(err.Error())
 	}
 }
 
