@@ -38,7 +38,7 @@ func initDBConnection(user, password, dbname, host, port, sslmode string) (*sql.
 		port,
 		sslmode,
 	)
-	logrus.Printf("Database connection: %s", connString)
+	logrus.Debugf("Database connection string: %s", connString)
 	db, _ := sql.Open("postgres", connString)
 	if err := db.Ping(); err != nil {
 		return nil, err
@@ -85,6 +85,9 @@ func log(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(keys) == 0 {
+		logrus.WithFields(logrus.Fields{
+			"IP": r.RemoteAddr,
+		}).Error("Empty request recieved.")
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("ERROR|Empty request"))
 		return
@@ -98,10 +101,6 @@ func log(w http.ResponseWriter, r *http.Request) {
 	)
 
 	_, err := db.Query(insertStatement, values...)
-	logrus.WithFields(logrus.Fields{
-		"IP":    r.RemoteAddr,
-		"Query": insertStatement,
-	}).Infof("Executed insert query")
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"IP":    r.RemoteAddr,
@@ -114,6 +113,12 @@ func log(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprint(w, "OK")
+	logrus.WithFields(logrus.Fields{
+		"IP":     r.RemoteAddr,
+		"Query":  insertStatement,
+		"Values": values,
+	}).Infof("Successfuly added log entry")
+
 	return
 }
 
