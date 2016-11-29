@@ -100,7 +100,7 @@ func log(w http.ResponseWriter, r *http.Request) {
 		strings.Join(positions, ","),
 	)
 
-	_, err := db.Query(insertStatement, values...)
+	rows, err := db.Query(insertStatement, values...)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"IP":    r.RemoteAddr,
@@ -111,7 +111,16 @@ func log(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("ERROR|%s", err.Error())))
 		return
 	}
-
+	if err := rows.Close(); err != nil {
+		logrus.WithFields(logrus.Fields{
+			"IP":    r.RemoteAddr,
+			"Query": insertStatement,
+			"Error": err.Error(),
+		}).Error("Failed closing connection")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("ERROR|%s", err.Error())))
+		return
+	}
 	fmt.Fprint(w, "OK")
 	logrus.WithFields(logrus.Fields{
 		"IP":     r.RemoteAddr,
